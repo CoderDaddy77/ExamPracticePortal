@@ -1,8 +1,8 @@
-import type { Subject } from '../types';
+import type { Subject, Chapter } from '../types';
 
-export const cuetEnglishSubject: Subject = {
-  id: 'english',
-  name: 'English',
+const readingComprehensionChapter: Chapter = {
+  id: 'reading-comprehension',
+  name: 'Reading Comprehension',
   tests: [
     {
       id: 'eng-test-1',
@@ -119,7 +119,7 @@ export const cuetEnglishSubject: Subject = {
         {
           id: 'cuet-eng-q19',
           question: 'Identify the correct sentence:',
-          options: ['She don\'t like coffee', 'She doesn\'t like coffee', 'She didn\'t likes coffee', 'She doesn\'t likes coffee'],
+          options: ["She don't like coffee", "She doesn't like coffee", "She didn't likes coffee", "She doesn't likes coffee"],
           correctAnswer: 1
         },
         {
@@ -161,4 +161,11 @@ export const cuetEnglishSubject: Subject = {
       ]
     }
   ]
+};
+
+export const cuetEnglishSubject: Subject = {
+  id: 'english',
+  name: 'English',
+  tests: [],
+  chapters: [readingComprehensionChapter]
 };

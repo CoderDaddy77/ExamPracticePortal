@@ -1,15 +1,36 @@
 import { useMemo, useState } from 'react';
 import { AlertCircle, ArrowLeft } from 'lucide-react';
-import type { ExamCategory, Test, Question, BookmarkedQuestion, TestResult } from '../types';
+import type { ExamCategory, Test, Question, BookmarkedQuestion, TestResult, TestPerformanceStats } from '../types';
 import { storage } from '../utils/storage';
 import { TestPage } from './TestPage';
 import { ResultsPage } from './ResultsPage';
+import { evaluateTestPerformance } from '../utils/scoring';
 
 interface BookmarkedTestPageProps {
   categories: ExamCategory[];
+  bookmarks: BookmarkedQuestion[];
   isDark: boolean;
   onBack: () => void;
   onResultSaved: () => void;
+}
+
+function getAllTests(category: ExamCategory): Test[] {
+  return [
+    ...(category.tests || []),
+    ...(category.subjects?.flatMap((s) => [
+      ...s.tests,
+      ...(s.chapters?.flatMap((ch) => ch.tests) || [])
+    ]) || [])
+  ];
+}
+
+function findQuestion(test: Test, b: BookmarkedQuestion): Question | undefined {
+  const byId = test.questions.find((q) => q.id === b.questionId);
+  if (byId) return byId;
+  if (b.questionText) {
+    return test.questions.find((q) => q.question === b.questionText);
+  }
+  return undefined;
 }
 
 function resolveBookmarkedQuestions(
@@ -26,30 +47,39 @@ function resolveBookmarkedQuestions(
     }
   });
 
-  for (const bookmark of uniqueByQuestion.values()) {
-    const category = categories.find((c) => c.id === bookmark.categoryId);
+  for (const b of uniqueByQuestion.values()) {
+    const category = categories.find((c) => c.id === b.categoryId);
     if (!category) continue;
 
-    const allTests: Test[] = [
-      ...(category.tests || []),
-      ...(category.subjects?.flatMap((s) => s.tests) || [])
-    ];
+    const allTests = getAllTests(category);
 
-    const test = allTests.find((t) => t.id === bookmark.testId);
-    if (!test) continue;
+    // Try the bookmarked test first
+    let test = allTests.find((t) => t.id === b.testId);
+    let question: Question | undefined;
 
-    const question = test.questions.find((q) => q.id === bookmark.questionId);
-    if (!question) continue;
+    if (test) {
+      question = findQuestion(test, b);
+    }
+
+    // Cross-test fallback: search all tests in category
+    if (!question) {
+      for (const t of allTests) {
+        question = findQuestion(t, b);
+        if (question) { test = t; break; }
+      }
+    }
+
+    if (!test || !question) continue;
 
     questions.push(question);
-    mapping[question.id] = { categoryId: bookmark.categoryId, testId: bookmark.testId };
+    mapping[question.id] = { categoryId: b.categoryId, testId: test.id };
   }
 
   return { questions, mapping };
 }
 
-export function BookmarkedTestPage({ categories, isDark, onBack, onResultSaved }: BookmarkedTestPageProps) {
-  const bookmarks = storage.getBookmarks();
+
+export function BookmarkedTestPage({ categories, bookmarks, isDark, onBack, onResultSaved }: BookmarkedTestPageProps) {
 
   const { questions } = useMemo(
     () => resolveBookmarkedQuestions(bookmarks, categories),
@@ -57,17 +87,18 @@ export function BookmarkedTestPage({ categories, isDark, onBack, onResultSaved }
   );
 
   const [submitted, setSubmitted] = useState(false);
-  const [lastAnswers, setLastAnswers] = useState<number[]>([]);
+  const [lastAnswers, setLastAnswers] = useState<(number | null)[]>([]);
   const [lastScore, setLastScore] = useState(0);
   const [lastTotal, setLastTotal] = useState(0);
+  const [lastPerformance, setLastPerformance] = useState<TestPerformanceStats | null>(null);
 
   if (!bookmarks.length || !questions.length) {
     return (
       <div className={`min-h-screen py-8 px-4 ${
-        isDark ? 'bg-[#18191D]' : 'bg-gradient-to-br from-blue-50 to-indigo-50'
+        isDark ? 'bg-[#1F1F1E]' : 'bg-[#F6F8F9]'
       }`}>
         <div className={`max-w-xl mx-auto rounded-xl shadow-lg p-8 text-center ${
-          isDark ? 'bg-[#212226] border border-slate-700' : 'bg-white'
+          isDark ? 'bg-[#1E1E1D] border border-slate-700' : 'bg-white'
         }`}>
           <AlertCircle className={isDark ? 'mx-auto mb-4 text-blue-400' : 'mx-auto mb-4 text-blue-500'} size={40} />
           <h2 className={`text-2xl font-bold mb-2 ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>
@@ -77,17 +108,7 @@ export function BookmarkedTestPage({ categories, isDark, onBack, onResultSaved }
             You have not bookmarked any questions yet. After completing a test, you can bookmark
             questions from the results page and they will appear here.
           </p>
-          <button
-            onClick={onBack}
-            className={`inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg border transition-colors ${
-              isDark
-                ? 'border-slate-700 bg-[#18191D] text-slate-200 hover:bg-slate-700/60'
-                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            <ArrowLeft size={18} />
-            Back to Home
-          </button>
+          
         </div>
       </div>
     );
@@ -100,15 +121,18 @@ export function BookmarkedTestPage({ categories, isDark, onBack, onResultSaved }
   };
 
   const handleSubmit = (
-    answers: number[],
+    answers: (number | null)[],
     score: number,
     total: number,
-    durationSeconds?: number
+    durationSeconds?: number,
+    performance?: TestPerformanceStats
   ) => {
+    const resolvedPerformance = performance ?? evaluateTestPerformance(answers, syntheticTest.questions);
     setSubmitted(true);
     setLastAnswers(answers);
     setLastScore(score);
     setLastTotal(total);
+    setLastPerformance(resolvedPerformance);
 
     const result: TestResult = {
       testId: syntheticTest.id,
@@ -118,7 +142,11 @@ export function BookmarkedTestPage({ categories, isDark, onBack, onResultSaved }
       total,
       timestamp: Date.now(),
       mode: 'normal',
-      durationSeconds
+      durationSeconds,
+      marks: resolvedPerformance.marks,
+      totalMarks: resolvedPerformance.totalMarks,
+      incorrectCount: resolvedPerformance.incorrect,
+      unattemptedCount: resolvedPerformance.unattempted
     };
 
     storage.saveResult(result);
@@ -130,6 +158,7 @@ export function BookmarkedTestPage({ categories, isDark, onBack, onResultSaved }
     setLastAnswers([]);
     setLastScore(0);
     setLastTotal(0);
+    setLastPerformance(null);
   };
 
   if (!submitted) {
@@ -153,6 +182,7 @@ export function BookmarkedTestPage({ categories, isDark, onBack, onResultSaved }
       answers={lastAnswers}
       score={lastScore}
       total={lastTotal}
+      performance={lastPerformance ?? undefined}
       bookmarks={bookmarks}
       isDark={isDark}
       onBack={handleRetake}

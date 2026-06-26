@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://exam-practice-portal.web.app/sitemap.xml

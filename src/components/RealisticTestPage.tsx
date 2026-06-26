@@ -1,6 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Clock, Maximize2, Minimize2, Pause, Play, CheckCircle2, AlertCircle } from 'lucide-react';
-import type { Test } from '../types';
+import type { Test, TestPerformanceStats } from '../types';
+import { evaluateTestPerformance } from '../utils/scoring';
+import { ModalAlert } from './ModalAlert';
+import { RichContent } from './RichContent';
+import { MatchingQuestionDisplay } from './MatchingQuestionDisplay';
 
 interface RealisticTestPageProps {
   test: Test;
@@ -8,7 +12,14 @@ interface RealisticTestPageProps {
   categoryName: string;
   isDark: boolean;
   onBack: () => void;
-  onSubmit: (answers: number[], score: number, total: number, durationSeconds?: number, markedForReview?: number[]) => void;
+  onSubmit: (
+    answers: (number | null)[],
+    score: number,
+    total: number,
+    durationSeconds?: number,
+    performance?: TestPerformanceStats,
+    markedForReview?: number[]
+  ) => void;
 }
 
 type QuestionStatus = 'not-visited' | 'not-answered' | 'answered' | 'marked' | 'marked-answered';
@@ -22,16 +33,33 @@ export function RealisticTestPage({ test, categoryId: _categoryId, categoryName,
   const [showQuestionPaper, setShowQuestionPaper] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  
-  // Timer: Default 30 minutes or 1 minute per question, whichever is higher
-  const defaultTimeMinutes = Math.max(30, test.questions.length);
-  const [timeRemaining, setTimeRemaining] = useState(defaultTimeMinutes * 60);
-  const [timeUp, setTimeUp] = useState(false);
+  const [tempAnswer, setTempAnswer] = useState<number | null>(null); // Temp answer before Save & Next
+  const [questionTime, setQuestionTime] = useState(0); // Time spent on current question in seconds
 
-  // Track visited questions
+  // Timer: Default 30 minutes or 1 minute per question unless overridden per test
+  const timeLimitMinutes = test.timeLimitMinutes ?? Math.max(30, test.questions.length);
+  const totalTimeSeconds = timeLimitMinutes * 60;
+  const [timeRemaining, setTimeRemaining] = useState(totalTimeSeconds);
+  const [timeUp, setTimeUp] = useState(false);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+
+  // Track visited questions and reset temp answer
   useEffect(() => {
     setVisited(prev => new Set([...prev, currentQuestion]));
+    // Load existing answer as temp if it exists, otherwise reset
+    setTempAnswer(answers[currentQuestion] ?? null);
+    // Reset question time when changing question
+    setQuestionTime(0);
   }, [currentQuestion]);
+
+  // Question time counter
+  useEffect(() => {
+    if (showInstructions || showQuestionPaper || timeUp || isPaused) return;
+    const interval = setInterval(() => {
+      setQuestionTime(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showInstructions, showQuestionPaper, timeUp, isPaused, currentQuestion]);
 
   // Timer countdown
   useEffect(() => {
@@ -54,16 +82,55 @@ export function RealisticTestPage({ test, categoryId: _categoryId, categoryName,
   useEffect(() => {
     if (timeUp && !showInstructions && !showQuestionPaper) {
       const timer = setTimeout(() => {
-        const finalAnswers = answers as number[];
-        const score = finalAnswers.filter(
-          (answer, idx) => answer === test.questions[idx].correctAnswer
-        ).length;
-        const durationSeconds = defaultTimeMinutes * 60;
-        onSubmit(finalAnswers, score, test.questions.length, durationSeconds, Array.from(markedForReview));
+        const performance = evaluateTestPerformance(answers, test.questions);
+        onSubmit(answers, performance.correct, test.questions.length, totalTimeSeconds, performance, Array.from(markedForReview));
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [timeUp, showInstructions, showQuestionPaper, answers, test.questions, onSubmit, markedForReview, defaultTimeMinutes]);
+  }, [timeUp, showInstructions, showQuestionPaper, answers, test.questions, onSubmit, markedForReview, totalTimeSeconds]);
+
+  // Warn user if they try to refresh/close tab during test
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'Are you sure you want to leave? Your progress will be lost.';
+      return e.returnValue;
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
+  // Push a single dummy history state ONCE on mount
+  useEffect(() => {
+    window.history.pushState({ testActive: true }, '');
+  }, []);
+
+  // Block browser back button during test
+  useEffect(() => {
+    const handlePopState = () => {
+      const answeredCount = answers.filter(a => a !== null).length;
+      const msg =
+        answeredCount > 0
+          ? `You have answered ${answeredCount} out of ${test.questions.length} questions. Are you sure you want to exit? Your progress will be lost.`
+          : 'Are you sure you want to exit the test? Your progress will be lost.';
+
+      if (window.confirm(msg)) {
+        if (document.fullscreenElement) {
+          document.exitFullscreen();
+        }
+        window.removeEventListener('popstate', handlePopState);
+        onBack();
+      } else {
+        // Re-push the dummy state so the back button is blocked again
+        window.history.pushState({ testActive: true }, '');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [answers, test.questions.length, onBack]);
 
   // Fullscreen handling
   const toggleFullscreen = () => {
@@ -84,26 +151,99 @@ export function RealisticTestPage({ test, categoryId: _categoryId, categoryName,
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  // Inject scrollbar override into <head> for the entire lifetime of this component
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.setAttribute('data-realistic-scrollbar', '1');
+    style.textContent = `
+      .realistic-scrollbar { scrollbar-width: thin !important; }
+      .realistic-scrollbar::-webkit-scrollbar { width: 8px !important; height: 8px !important; }
+    `;
+    document.head.appendChild(style);
+    return () => { document.head.removeChild(style); };
+  }, []);
+
+  // ── Block wheel/touch scroll on the entire test container (non-passive, the only way that works in React) ──
+  const outerRef          = useRef<HTMLDivElement>(null);
+  const questionContentRef = useRef<HTMLDivElement>(null);
+  const paletteRef         = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (showInstructions || showQuestionPaper) return;
+
+    const blockScroll = (e: WheelEvent | TouchEvent) => e.preventDefault();
+    const opts = { passive: false } as AddEventListenerOptions;
+
+    // Block on the outer container — catches ALL wheel events inside the test
+    const outer = outerRef.current;
+    const qc    = questionContentRef.current;
+    const pl    = paletteRef.current;
+
+    outer?.addEventListener('wheel',     blockScroll, opts);
+    outer?.addEventListener('touchmove', blockScroll, opts);
+    qc?.addEventListener('wheel',        blockScroll, opts);
+    qc?.addEventListener('touchmove',    blockScroll, opts);
+    pl?.addEventListener('wheel',        blockScroll, opts);
+    pl?.addEventListener('touchmove',    blockScroll, opts);
+
+    return () => {
+      outer?.removeEventListener('wheel',     blockScroll);
+      outer?.removeEventListener('touchmove', blockScroll);
+      qc?.removeEventListener('wheel',        blockScroll);
+      qc?.removeEventListener('touchmove',    blockScroll);
+      pl?.removeEventListener('wheel',        blockScroll);
+      pl?.removeEventListener('touchmove',    blockScroll);
+    };
+  }, [showInstructions, showQuestionPaper]);
+
+  // Disable body scroll only when on main test page (not instructions/question paper)
+  useEffect(() => {
+    if (!showInstructions && !showQuestionPaper) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [showInstructions, showQuestionPaper]);
+
   const handleAnswerSelect = (optionIndex: number) => {
-    const newAnswers = [...answers];
-    newAnswers[currentQuestion] = optionIndex;
-    setAnswers(newAnswers);
+    setTempAnswer(optionIndex);
   };
 
   const handleSaveAndNext = () => {
+    // Save the temp answer to actual answers
+    if (tempAnswer !== null) {
+      const newAnswers = [...answers];
+      newAnswers[currentQuestion] = tempAnswer;
+      setAnswers(newAnswers);
+    }
+    setTempAnswer(null);
     if (currentQuestion < test.questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
     }
   };
 
   const handleMarkForReviewAndNext = () => {
+    // Save temp answer if selected
+    if (tempAnswer !== null) {
+      const newAnswers = [...answers];
+      newAnswers[currentQuestion] = tempAnswer;
+      setAnswers(newAnswers);
+    }
     setMarkedForReview(prev => new Set([...prev, currentQuestion]));
+    setTempAnswer(null);
     if (currentQuestion < test.questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
     }
   };
 
   const handleClearResponse = () => {
+    setTempAnswer(null);
     const newAnswers = [...answers];
     newAnswers[currentQuestion] = null;
     setAnswers(newAnswers);
@@ -115,6 +255,8 @@ export function RealisticTestPage({ test, categoryId: _categoryId, categoryName,
   };
 
   const handleQuestionClick = (idx: number) => {
+    // Don't save temp answer when clicking question palette (skip without saving)
+    setTempAnswer(null);
     setCurrentQuestion(idx);
     setShowQuestionPaper(false);
   };
@@ -122,7 +264,7 @@ export function RealisticTestPage({ test, categoryId: _categoryId, categoryName,
   const getQuestionStatus = (idx: number): QuestionStatus => {
     const isMarked = markedForReview.has(idx);
     const isAnswered = answers[idx] !== null;
-    
+
     if (isMarked && isAnswered) return 'marked-answered';
     if (isMarked) return 'marked';
     if (isAnswered) return 'answered';
@@ -132,12 +274,12 @@ export function RealisticTestPage({ test, categoryId: _categoryId, categoryName,
 
   const getStatusColor = (status: QuestionStatus) => {
     switch (status) {
-      case 'not-visited': return isDark ? 'bg-[#212226] text-slate-300' : 'bg-gray-200 text-gray-600';
-      case 'not-answered': return 'bg-red-500 text-white';
-      case 'answered': return 'bg-green-500 text-white';
-      case 'marked': return 'bg-purple-500 text-white';
-      case 'marked-answered': return 'bg-purple-500 text-white';
-      default: return isDark ? 'bg-[#212226] text-slate-300' : 'bg-gray-200 text-gray-600';
+      case 'not-visited': return 'bg-white border-2 border-gray-400 text-gray-700';
+      case 'not-answered': return 'bg-red-500 border-2 border-red-600 text-white';
+      case 'answered': return 'bg-green-500 border-2 border-green-600 text-white';
+      case 'marked': return 'bg-purple-500 border-2 border-purple-600 text-white';
+      case 'marked-answered': return 'bg-purple-500 border-2 border-purple-600 text-white';
+      default: return 'bg-white border-2 border-gray-400 text-gray-700';
     }
   };
 
@@ -157,88 +299,100 @@ export function RealisticTestPage({ test, categoryId: _categoryId, categoryName,
   const notAnsweredCount = visited.size - answeredCount;
   const markedAndAnsweredCount = Array.from(markedForReview).filter(idx => answers[idx] !== null).length;
 
-  // Instructions Page
+  // Instructions Page — always light/professional, no dark mode (real exam interfaces don't have it)
   if (showInstructions) {
     return (
-      <div className={`min-h-screen py-8 px-4 ${
-        isDark ? 'bg-[#18191D]' : 'bg-gradient-to-br from-blue-50 to-indigo-50'
-      }`}>
-        <div className="max-w-6xl mx-auto">
-          <div className={`rounded-xl shadow-lg p-8 ${
-            isDark ? 'bg-[#212226] border border-slate-700' : 'bg-white'
-          }`}>
-            <h1 className={`text-3xl font-bold mb-6 ${
-              isDark ? 'text-slate-100' : 'text-gray-800'
-            }`}>
-              General Instructions
-            </h1>
+      <div className="min-h-screen bg-[#f0f2f5]">
+        {/* NTA-style top bar */}
+        <div className="bg-[#1e3a8a] text-white">
+          <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold tracking-wide">EXAM PRACTICE PORTAL</h1>
+              <p className="text-blue-200 text-xs mt-0.5">{categoryName} — {test.name}</p>
+            </div>
             
-            <div className={`space-y-6 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
-              <div>
-                <h2 className={`text-xl font-bold mb-3 ${
-                  isDark ? 'text-slate-100' : 'text-gray-800'
-                }`}>1. Timer</h2>
-                <p>The exam clock is set at the top-right corner. A countdown timer will show the remaining time. The exam will automatically end when the timer reaches zero. You do not need to manually terminate or submit the exam.</p>
-              </div>
+          </div>
+        </div>
 
-              <div>
-                <h2 className={`text-xl font-bold mb-3 ${
-                  isDark ? 'text-slate-100' : 'text-gray-800'
-                }`}>2. Question Palette</h2>
-                <p>The Question Palette on the right side of the screen shows the status of each question:</p>
-                <ul className="list-disc list-inside space-y-2 mt-2 ml-4">
-                  <li><span className="inline-block w-4 h-4 bg-gray-200 rounded mr-2"></span> <strong>Gray:</strong> You have not visited the question yet.</li>
-                  <li><span className="inline-block w-4 h-4 bg-red-500 rounded mr-2"></span> <strong>Red:</strong> You have not answered the question.</li>
-                  <li><span className="inline-block w-4 h-4 bg-green-500 rounded mr-2"></span> <strong>Green:</strong> You have answered the question.</li>
-                  <li><span className="inline-block w-4 h-4 bg-purple-500 rounded mr-2"></span> <strong>Purple:</strong> You have marked the question for review (not answered).</li>
-                  <li><span className="inline-block w-4 h-4 bg-purple-500 rounded mr-2 relative">
-                    <span className="absolute inset-0 flex items-center justify-center">
-                      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                    </span>
-                  </span> <strong>Purple with Green dot:</strong> You have answered and marked for review.</li>
-                </ul>
-                <p className="mt-3">Mark For Review indicates that you want to revisit the question. If a question is answered and marked for review, the answer will be considered for evaluation unless modified.</p>
-              </div>
+        <div className="max-w-5xl mx-auto px-6 py-8">
+          {/* Info bar */}
+          <div className="bg-[#1e3a8a] text-white rounded-t-lg px-6 py-3 flex items-center justify-between">
+            <span className="font-semibold text-sm">General Instructions</span>
+            <span className="text-blue-200 text-xs">Read carefully before proceeding</span>
+          </div>
 
-              <div>
-                <h2 className={`text-xl font-bold mb-3 ${
-                  isDark ? 'text-slate-100' : 'text-gray-800'
-                }`}>3. Navigating to a Question</h2>
-                <p>To navigate between questions, you can:</p>
-                <ul className="list-disc list-inside space-y-2 mt-2 ml-4">
-                  <li>Click on a question number in the Question Palette (this does NOT save your current answer).</li>
-                  <li>Click <strong>"Save & Next"</strong> to save your current answer and move to the next question.</li>
-                  <li>Click <strong>"Mark for Review & Next"</strong> to save your answer, mark it for review, and move to the next question.</li>
-                </ul>
-                <p className="mt-3 text-red-600 font-semibold">⚠️ Note: Your answer will NOT be saved if you navigate directly without using "Save & Next" or "Mark for Review & Next".</p>
+          <div className="bg-white border border-gray-200 rounded-b-lg shadow-sm px-8 py-6">
+            {/* Marking scheme */}
+            <div className="flex gap-4 mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="text-center px-4 py-2 bg-green-100 border border-green-300 rounded">
+                <div className="text-2xl font-bold text-green-700">+5</div>
+                <div className="text-xs text-green-600 font-medium">Correct Answer</div>
               </div>
-
-              <div>
-                <h2 className={`text-xl font-bold mb-3 ${
-                  isDark ? 'text-slate-100' : 'text-gray-800'
-                }`}>4. Answering Questions</h2>
-                <ul className="list-disc list-inside space-y-2 ml-4">
-                  <li>Click on the option you want to select as your answer.</li>
-                  <li>Use <strong>"Clear Response"</strong> to remove your selected answer.</li>
-                  <li>You can change your answer anytime before submitting the test.</li>
-                </ul>
+              <div className="text-center px-4 py-2 bg-red-100 border border-red-300 rounded">
+                <div className="text-2xl font-bold text-red-700">−1</div>
+                <div className="text-xs text-red-600 font-medium">Wrong Answer</div>
               </div>
-
-              <div>
-                <h2 className={`text-xl font-bold mb-3 ${
-                  isDark ? 'text-slate-100' : 'text-gray-800'
-                }`}>5. Question Paper</h2>
-                <p className="text-red-600 font-semibold">You can view all questions at once by clicking the "Question Paper" button. This feature allows you to see the entire question paper at a glance.</p>
+              <div className="text-center px-4 py-2 bg-gray-100 border border-gray-300 rounded">
+                <div className="text-2xl font-bold text-gray-600">0</div>
+                <div className="text-xs text-gray-500 font-medium">Unattempted</div>
+              </div>
+              <div className="flex-1 flex items-center pl-4 border-l border-blue-200">
+                <p className="text-sm text-blue-800">
+                  Total Questions: <strong>{test.questions.length}</strong> &nbsp;|&nbsp;
+                  Time Allowed: <strong>{timeLimitMinutes} minutes</strong>
+                </p>
               </div>
             </div>
 
-            <div className="mt-8 flex justify-end">
+            <ol className="space-y-5 text-sm text-gray-700 leading-relaxed list-decimal list-inside">
+              <li>
+                <strong className="text-gray-900">Timer:</strong> The countdown timer is shown at the top-right. The exam auto-submits when it reaches zero.
+              </li>
+              <li>
+                <strong className="text-gray-900">Question Palette</strong> on the right shows status via colour codes:
+                <div className="mt-3 ml-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[
+                    { color: 'bg-white border-2 border-gray-400', label: 'NOT VISITED', desc: 'Not yet opened' },
+                    { color: 'bg-red-500', label: 'NOT ANSWERED', desc: 'Opened but unanswered' },
+                    { color: 'bg-green-500', label: 'ANSWERED', desc: 'Answer saved' },
+                    { color: 'bg-purple-500', label: 'MARKED FOR REVIEW', desc: 'Flagged, no answer' },
+                    { color: 'bg-purple-500', label: 'ANSWERED & MARKED', desc: 'Answered and flagged' },
+                  ].map(({ color, label, desc }) => (
+                    <div key={label} className="flex items-center gap-3 p-2 bg-gray-50 border border-gray-200 rounded">
+                      <span className={`w-7 h-7 rounded flex-shrink-0 ${color}`} />
+                      <div>
+                        <p className="font-semibold text-gray-800 text-xs">{label}</p>
+                        <p className="text-gray-500 text-xs">{desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 ml-4 text-xs font-semibold text-gray-600">Marked-for-review answers ARE evaluated.</p>
+              </li>
+              <li>
+                <strong className="text-gray-900">Navigation:</strong> Use <strong>Save &amp; Next</strong> to save and move forward. Clicking a question number in the palette navigates without saving.
+              </li>
+              <li>
+                <strong className="text-gray-900">Answering:</strong> Click the radio button to select an option. Use <strong>Clear Response</strong> to deselect.
+              </li>
+              <li>
+                <strong className="text-gray-900">Submission:</strong> Click <strong>Submit Test</strong> when done. You will be asked to confirm before final submission.
+              </li>
+            </ol>
+
+            <div className="mt-8 pt-5 border-t border-gray-200 flex items-center justify-between">
+              <p className="text-xs text-gray-500">Please ensure you have read all instructions before starting.</p>
               <button
-                onClick={() => setShowInstructions(false)}
-                className={`px-8 py-3 rounded-lg transition-colors font-semibold ${
-                  isDark ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}>
-                Start Test
+                onClick={() => {
+                  setShowInstructions(false);
+                  if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(() => {});
+                    setIsFullscreen(true);
+                  }
+                }}
+                className="px-10 py-3 bg-[#16a34a] text-white font-bold text-base hover:bg-[#15803d] transition-colors rounded"
+              >
+                I AM READY TO BEGIN
               </button>
             </div>
           </div>
@@ -250,59 +404,50 @@ export function RealisticTestPage({ test, categoryId: _categoryId, categoryName,
   // Question Paper View
   if (showQuestionPaper) {
     return (
-      <div className={`min-h-screen py-8 px-4 ${
-        isDark ? 'bg-[#18191D]' : 'bg-gradient-to-br from-blue-50 to-indigo-50'
-      }`}>
+      <div className={`min-h-screen py-6 px-4 ${isDark ? 'bg-[#1a1a1a]' : 'bg-[#f5f5f5]'
+        }`}>
         <div className="max-w-6xl mx-auto">
-          <div className={`rounded-xl shadow-lg p-8 ${
-            isDark ? 'bg-[#212226] border border-slate-700' : 'bg-white'
-          }`}>
-            <div className="flex items-center justify-between mb-6">
-              <h1 className={`text-3xl font-bold ${
-                isDark ? 'text-slate-100' : 'text-gray-800'
+          <div className=
+            {`border-2 p-6 ${isDark ? 'bg-[#2a2a2a] border-[#404040]' : 'bg-white border-[#d1d5db]'
               }`}>
-                Question Paper
+            <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-gray-300 dark:border-gray-600">
+              <h1 className={`text-2xl font-bold ${isDark ? 'text-slate-100' : 'text-[#1e3a8a]'
+                }`}>
+                QUESTION PAPER - {categoryName.toUpperCase()}
               </h1>
               <button
                 onClick={() => setShowQuestionPaper(false)}
-                className={`px-6 py-2 rounded-lg transition-colors ${
-                  isDark ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}>
-                Back to Test
+                className="px-8 py-2 bg-[#2563eb] text-white font-semibold hover:bg-[#1d4ed8] transition-colors">
+                BACK TO TEST
               </button>
             </div>
-            <div className="space-y-8">
+            <div className="space-y-6">
               {test.questions.map((question, idx) => (
-                <div key={idx} className={`pb-6 border-b-2 ${
-                  isDark ? 'border-slate-600' : 'border-gray-200'
-                }`}>
+                <div key={idx} className={`pb-6 border-b ${isDark ? 'border-slate-600' : 'border-gray-300'
+                  }`}>
                   <div className="flex items-start gap-4 mb-4">
-                    <span className={`font-bold text-lg ${
-                      isDark ? 'text-blue-400' : 'text-blue-600'
-                    }`}>Q{idx + 1}.</span>
-                    <p className={`font-medium flex-1 ${
-                      isDark ? 'text-slate-200' : 'text-gray-800'
-                    }`}>{question.question}</p>
+                    <span className={`font-bold text-lg min-w-[60px] ${isDark ? 'text-blue-400' : 'text-[#1e3a8a]'
+                      }`}>Q{idx + 1}.</span>
+                    <p className={`font-medium flex-1 ${isDark ? 'text-slate-200' : 'text-gray-800'
+                      }`}><RichContent content={question.question} /></p>
                   </div>
-                  <div className="ml-8 space-y-2">
+                  <div className="ml-16 space-y-2">
                     {question.options.map((option, optIdx) => (
                       <div key={optIdx} className="flex items-center gap-3">
-                        <span className={`font-semibold w-6 ${
-                          isDark ? 'text-slate-400' : 'text-gray-600'
-                        }`}>
+                        <span className={`font-semibold w-8 ${isDark ? 'text-slate-400' : 'text-gray-600'
+                          }`}>
                           {String.fromCharCode(65 + optIdx)}.
                         </span>
-                        <span className={`${
-                          answers[idx] === optIdx 
-                            ? 'text-blue-600 font-semibold' 
-                            : isDark 
-                              ? 'text-slate-300' 
-                              : 'text-gray-700'
-                        }`}>
-                          {option}
+                        <span className={`${answers[idx] === optIdx
+                          ? 'text-[#16a34a] font-bold'
+                          : isDark
+                            ? 'text-slate-300'
+                            : 'text-gray-700'
+                          }`}>
+                          <RichContent content={option} />
                         </span>
                         {answers[idx] === optIdx && (
-                          <CheckCircle2 className={isDark ? 'text-blue-400' : 'text-blue-600'} size={18} />
+                          <CheckCircle2 className="text-[#16a34a]" size={18} />
                         )}
                       </div>
                     ))}
@@ -319,391 +464,289 @@ export function RealisticTestPage({ test, categoryId: _categoryId, categoryName,
   // Time's Up Screen
   if (timeUp) {
     return (
-      <div className={`min-h-screen py-8 px-4 flex items-center justify-center ${
-        isDark ? 'bg-[#18191D]' : 'bg-gradient-to-br from-red-50 to-orange-50'
-      }`}>
-        <div className={`max-w-2xl mx-auto rounded-xl shadow-lg p-8 text-center ${
-          isDark ? 'bg-[#212226] border border-slate-700' : 'bg-white'
+      <div className={`min-h-screen py-8 px-4 flex items-center justify-center ${isDark ? 'bg-[#1a1a1a]' : 'bg-[#f5f5f5]'
         }`}>
-          <div className="text-6xl mb-4">⏰</div>
-          <h2 className="text-3xl font-bold text-red-500 mb-4">Time's Up!</h2>
-          <p className={isDark ? 'text-slate-300' : 'text-gray-700'}>
-            Your test has been automatically submitted.
+        <div className={`max-w-2xl w-full border-4 border-red-600 p-10 text-center ${isDark ? 'bg-[#2a2a2a]' : 'bg-white'
+          }`}>
+          <div className="text-7xl mb-6 text-red-600">⏰</div>
+          <h2 className="text-4xl font-bold text-red-600 mb-4 tracking-wide">TIME IS OVER</h2>
+          <div className={`text-xl font-semibold mb-3 ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>
+            Your examination time has ended
+          </div>
+          <p className={`text-lg mb-6 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+            The examination has been automatically submitted.
           </p>
-          <p className={isDark ? 'text-slate-400' : 'text-gray-500'}>Redirecting to results...</p>
+          <div className={`inline-block px-6 py-2 border-2 ${isDark ? 'border-slate-500 text-slate-400' : 'border-gray-400 text-gray-600'
+            }`}>
+            Please wait while we process your responses...
+          </div>
         </div>
       </div>
     );
   }
 
+
   const question = test.questions[currentQuestion];
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-[#18191D]' : 'bg-gray-50'}`}>
-      {/* Header */}
-      <div className={`shadow-md border-b ${
-        isDark ? 'bg-[#212226] border-slate-700' : 'bg-white'
-      }`}>
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={onBack}
-                className={`inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg border transition-colors ${
-                  isDark
-                    ? 'border-slate-700 bg-[#212226] text-slate-200 hover:bg-slate-700/80'
-                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <ArrowLeft size={20} />
-                <span className="hidden sm:inline">Go to Tests</span>
-              </button>
-              <div className={`hidden md:block font-semibold ${
-                isDark ? 'text-slate-200' : 'text-gray-800'
-              }`}>
-                {categoryName} - {test.name}
+    <div
+      ref={outerRef}
+      className="h-screen w-screen overflow-hidden flex flex-col bg-white"
+      style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
+      onMouseUp={() => { if (window.getSelection()?.toString()) window.getSelection()?.removeAllRanges(); }}
+    >
+      {/* Testbook Header */}
+      <div className="bg-[#00838F] text-white flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-2">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-white rounded flex items-center justify-center">
+                <span className="text-[#00838F] font-bold text-sm">📚</span>
               </div>
+              <span className="font-bold text-lg">ExamPortal</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                  isDark ? 'bg-blue-900/30' : 'bg-blue-50'
-                }`}>
-                <Clock size={18} />
-                <span className={`font-bold ${
-                  isDark ? 'text-blue-400' : 'text-blue-600'
-                }`}>Time Left: {formatTime(timeRemaining)}</span>
-              </div>
-              <button
-                onClick={() => setIsPaused(!isPaused)}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  isDark ? 'bg-[#212226] hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'
-                }`}
-                title={isPaused ? 'Resume' : 'Pause'}
-              >
-                {isPaused ? <Play size={18} /> : <Pause size={18} />}
-              </button>
-              <button
-                onClick={toggleFullscreen}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  isDark ? 'bg-[#212226] hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'
-                }`}
-                title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-              >
-                {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-              </button>
-            </div>
+            <span className="text-sm opacity-90">{categoryName} - {test.name}</span>
           </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Time Left</span>
+              <div className="bg-white/20 px-3 py-1 rounded">
+                <span className="font-mono font-bold">{formatTime(timeRemaining)}</span>
+              </div>
+            </div>
+            <button
+              onClick={toggleFullscreen}
+              className="px-3 py-1.5 border border-white/50 rounded text-sm hover:bg-white/10 transition-colors"
+            >
+              {isFullscreen ? 'Exit Full Screen' : 'Switch Full Screen'}
+            </button>
+            <button
+              onClick={() => setIsPaused(!isPaused)}
+              className="px-3 py-1.5 border border-white/50 rounded text-sm hover:bg-white/10 transition-colors"
+            >
+              {isPaused ? 'Resume' : 'Pause'}
+            </button>
+          </div>
+        </div>
+        {/* SECTIONS Tab */}
+        <div className="bg-[#006970] px-4 py-1.5 flex items-center gap-4">
+          <span className="text-sm">SECTIONS</span>
+          <button className="bg-[#00B8D4] px-4 py-1 rounded text-sm font-medium">
+            Test
+          </button>
         </div>
       </div>
 
-      <div className="flex h-[calc(100vh-73px)]">
-        {/* Main Content Area (70%) */}
-        <div className={`flex-1 overflow-y-auto ${isDark ? 'bg-[#212226]' : 'bg-white'}`}>
-          <div className="max-w-4xl mx-auto p-6">
-            {/* Question Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className={`text-2xl font-bold ${
-                  isDark ? 'text-slate-100' : 'text-gray-800'
-                }`}>
-                  Question No. {currentQuestion + 1}
-                </h2>
-                <div className={`flex items-center gap-4 mt-2 text-sm ${
-                  isDark ? 'text-slate-400' : 'text-gray-600'
-                }`}>
-                  <span>Marks: <span className="text-green-500 font-semibold">+5</span> <span className="text-red-500">-1</span></span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <select className={`px-3 py-2 border rounded-lg text-sm ${
-                  isDark ? 'bg-[#212226] border-slate-600 text-slate-200' : 'bg-white border-gray-300 text-gray-700'
-                }`}>
-                  <option>English</option>
-                </select>
-                <button
-                  className={`px-3 py-2 border rounded-lg text-sm transition-colors ${
-                    isDark ? 'border-slate-600 hover:bg-slate-700' : 'border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <AlertCircle size={16} />
-                </button>
-              </div>
+      {/* Main Content - Fixed Height */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Content Area */}
+        <div className="flex-1 flex flex-col bg-white overflow-hidden">
+          {/* Question Header Row */}
+          <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 flex-shrink-0">
+            <div className="font-semibold text-gray-800">
+              Question No. {currentQuestion + 1}
             </div>
-
-            {/* Question */}
-            <div className={`rounded-lg p-6 mb-6 ${
-              isDark ? 'bg-[#212226]' : 'bg-gray-50'
-            }`}>
-              <p className={`text-lg leading-relaxed ${
-                isDark ? 'text-slate-200' : 'text-gray-800'
-              }`}>
-                {question.question}
-              </p>
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-1">
+                <span className="text-gray-600">Marks</span>
+                <span className="bg-[#00B8D4] text-white px-2 py-0.5 rounded text-xs font-bold">+5</span>
+                <span className="bg-red-500 text-white px-2 py-0.5 rounded text-xs font-bold">-1</span>
+              </div>
+              <div className="flex items-center gap-1 text-gray-600">
+                <span>Time</span>
+                <span className="font-mono">{Math.floor(questionTime / 60).toString().padStart(2, '0')}:{(questionTime % 60).toString().padStart(2, '0')}</span>
+              </div>
+              <select className="border border-gray-300 rounded px-2 py-1 text-sm">
+                <option>English</option>
+              </select>
+              <button className="text-gray-500 hover:text-gray-700 flex items-center gap-1 text-sm">
+                <AlertCircle size={14} />
+                Report
+              </button>
             </div>
+          </div>
 
-            {/* Options */}
-            <div className="space-y-3 mb-8">
+          {/* Question Content - Scrollable only via scrollbar drag */}
+          <div
+            ref={questionContentRef}
+            className="flex-1 overflow-y-auto px-6 py-4 realistic-scrollbar"
+          >
+              <MatchingQuestionDisplay
+                  questionText={question.question}
+                  isDark={false}
+                  className="text-gray-900 mb-6 leading-relaxed"
+                />
+
+            {/* Options - Simple Radio Buttons */}
+            <div className="space-y-3">
               {question.options.map((option, idx) => (
-                <button
+                <div
                   key={idx}
                   onClick={() => handleAnswerSelect(idx)}
-                  className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
-                    answers[currentQuestion] === idx
-                      ? isDark
-                        ? 'border-blue-500 bg-blue-900/30'
-                        : 'border-blue-600 bg-blue-50'
-                      : isDark
-                      ? 'border-slate-600 hover:border-blue-500 bg-[#212226]'
-                      : 'border-gray-200 hover:border-blue-300 bg-white'
-                  }`}
+                  className="flex items-center gap-3 p-2 rounded select-none cursor-pointer"
                 >
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-semibold ${
-                        answers[currentQuestion] === idx
-                          ? 'border-blue-600 bg-blue-600 text-white'
-                          : isDark
-                          ? 'border-slate-500 text-slate-300'
-                          : 'border-gray-300 text-gray-600'
-                      }`}
-                    >
-                      {String.fromCharCode(65 + idx)}
-                    </div>
-                    <span className={`flex-1 ${
-                      isDark ? 'text-slate-200' : 'text-gray-800'
-                    }`}>
-                      {option}
-                    </span>
-                    {answers[currentQuestion] === idx && (
-                      <CheckCircle2 className={isDark ? 'text-blue-400' : 'text-blue-600'} size={20} />
-                    )}
-                  </div>
-                </button>
+                  <input
+                    type="radio"
+                    name="answer"
+                    checked={tempAnswer === idx || (tempAnswer === null && answers[currentQuestion] === idx)}
+                    onChange={() => handleAnswerSelect(idx)}
+                    className="w-4 h-4 cursor-pointer accent-[#00B8D4] flex-shrink-0"
+                    tabIndex={-1}
+                  />
+                  <span className="text-gray-900 pointer-events-none select-none"><RichContent content={option} /></span>
+                </div>
               ))}
             </div>
+          </div>
 
-            {/* Navigation Buttons */}
-            <div className="flex items-center justify-between gap-4">
+          {/* Bottom Navigation Bar - Fixed at Bottom */}
+          <div className="border-t border-gray-200 px-4 py-2 flex items-center justify-between bg-white flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleMarkForReviewAndNext}
+                className="px-4 py-2 bg-[#A9CFF4] text-gray-800 rounded text-sm font-medium hover:bg-[#89BFF4] transition-colors"
+              >
+                Mark for Review & Next
+              </button>
               <button
                 onClick={handleClearResponse}
-                className={`px-6 py-3 rounded-lg transition-colors font-semibold ${
-                  isDark ? 'bg-[#212226] text-slate-200 hover:bg-slate-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className="px-4 py-2 bg-[#A9CFF4] text-gray-800 rounded text-sm font-medium hover:bg-[#89BFF4] transition-colors"
               >
                 Clear Response
               </button>
-              <div className="flex gap-3">
-                {currentQuestion > 0 && (
-                  <button
-                    onClick={() => setCurrentQuestion(currentQuestion - 1)}
-                    className={`px-6 py-3 rounded-lg transition-colors font-semibold ${
-                      isDark ? 'bg-[#212226] text-slate-200 hover:bg-slate-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    Previous
-                  </button>
-                )}
-                {currentQuestion < test.questions.length - 1 ? (
-                  <>
-                    <button
-                      onClick={handleMarkForReviewAndNext}
-                      className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold"
-                    >
-                      Mark for Review & Next
-                    </button>
-                    <button
-                      onClick={handleSaveAndNext}
-                      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-                    >
-                      Save & Next
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => {
-                      const finalAnswers = answers as number[];
-                      const score = finalAnswers.filter(
-                        (answer, idx) => answer === test.questions[idx].correctAnswer
-                      ).length;
-                      const durationSeconds = defaultTimeMinutes * 60 - timeRemaining;
-                      onSubmit(finalAnswers, score, test.questions.length, durationSeconds, Array.from(markedForReview));
-                    }}
-                    className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center gap-2"
-                  >
-                    <CheckCircle2 size={20} />
-                    Submit Test
-                  </button>
-                )}
-              </div>
             </div>
+            <button
+              onClick={handleSaveAndNext}
+              className="px-4 py-2 bg-[#00B8D4] text-white rounded text-sm font-medium hover:bg-[#00ACC1] transition-colors"
+            >
+              Save & Next
+            </button>
           </div>
         </div>
 
-        {/* Sidebar (30%) */}
-        <div className={`w-80 border-l overflow-y-auto ${
-          isDark ? 'bg-[#212226] border-slate-600' : 'bg-gray-50'
-        }`}>
-          <div className="p-4">
-            {/* User Info */}
-            <div className={`rounded-lg p-4 mb-4 text-center ${
-              isDark ? 'bg-[#212226]' : 'bg-white'
-            }`}>
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-2 ${
-                isDark ? 'bg-[#212226]' : 'bg-blue-100'
-              }`}>
-                <span className="text-2xl">👤</span>
-              </div>
-              <p className={`font-semibold ${
-                isDark ? 'text-slate-200' : 'text-gray-800'
-              }`}>
-                User
-              </p>
+        {/* Right Sidebar - Light Cyan */}
+        <div className="w-72 bg-[#E0F7FA] flex flex-col overflow-hidden flex-shrink-0">
+          {/* User Info */}
+          <div className="p-4 flex flex-col items-center border-b border-[#B2EBF2]">
+            <div className="w-16 h-16 rounded-full bg-[#00B8D4] flex items-center justify-center mb-2">
+              <span className="text-white text-2xl">👤</span>
             </div>
+            <span className="text-gray-800 font-medium">Mr</span>
+          </div>
 
-            {/* Status Summary */}
-            <div className={`rounded-lg p-4 mb-4 ${
-              isDark ? 'bg-[#212226]' : 'bg-white'
-            }`}>
-              <h3 className={`font-semibold mb-3 ${
-                isDark ? 'text-slate-200' : 'text-gray-700'
-              }`}>
-                Question Status
-              </h3>
-              <div className={`space-y-2 text-sm ${
-                isDark ? 'text-slate-300' : 'text-gray-700'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div className={`flex items-center gap-2 ${
-                    isDark ? 'text-slate-300' : 'text-gray-700'
-                  }`}>
-                    <div className="w-4 h-4 bg-green-500 rounded"></div>
-                    <span>Answered</span>
-                  </div>
-                  <span className={`font-semibold ${
-                    isDark ? 'text-slate-200' : 'text-gray-800'
-                  }`}>{answeredCount}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className={`flex items-center gap-2 ${
-                    isDark ? 'text-slate-300' : 'text-gray-700'
-                  }`}>
-                    <div className="w-4 h-4 bg-purple-500 rounded"></div>
-                    <span>Marked</span>
-                  </div>
-                  <span className={`font-semibold ${
-                    isDark ? 'text-slate-200' : 'text-gray-800'
-                  }`}>{markedCount - markedAndAnsweredCount}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className={`flex items-center gap-2 ${
-                    isDark ? 'text-slate-300' : 'text-gray-700'
-                  }`}>
-                    <div className="w-4 h-4 bg-gray-200 rounded"></div>
-                    <span>Not Visited</span>
-                  </div>
-                  <span className={`font-semibold ${
-                    isDark ? 'text-slate-200' : 'text-gray-800'
-                  }`}>{notVisitedCount}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className={`flex items-center gap-2 ${
-                    isDark ? 'text-slate-300' : 'text-gray-700'
-                  }`}>
-                    <div className="w-4 h-4 bg-purple-500 rounded relative">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      </div>
-                    </div>
-                    <span>Marked & Answered</span>
-                  </div>
-                  <span className={`font-semibold ${
-                    isDark ? 'text-slate-200' : 'text-gray-800'
-                  }`}>{markedAndAnsweredCount}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className={`flex items-center gap-2 ${
-                    isDark ? 'text-slate-300' : 'text-gray-700'
-                  }`}>
-                    <div className="w-4 h-4 bg-red-500 rounded"></div>
-                    <span>Not Answered</span>
-                  </div>
-                  <span className={`font-semibold ${
-                    isDark ? 'text-slate-200' : 'text-gray-800'
-                  }`}>{notAnsweredCount}</span>
+          {/* Status Legend */}
+          <div className="p-3 text-xs flex flex-wrap gap-x-4 gap-y-1 border-b border-[#B2EBF2]">
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 rounded-full bg-green-500"></div>
+              <span className="text-gray-700">Answered</span>
+              <span className="font-bold ml-1">{answeredCount}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 rounded-full bg-purple-500"></div>
+              <span className="text-gray-700">Marked</span>
+              <span className="font-bold ml-1">{markedCount - markedAndAnsweredCount}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 border-2 border-gray-500 bg-white"></div>
+              <span className="text-gray-700">Not Visited</span>
+              <span className="font-bold ml-1">{notVisitedCount}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 rounded-full bg-purple-500 relative">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
                 </div>
               </div>
+              <span className="text-gray-700">Marked and answered</span>
+              <span className="font-bold ml-1">{markedAndAnsweredCount}</span>
             </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 rounded-full bg-red-500"></div>
+              <span className="text-gray-700">Not Answered</span>
+              <span className="font-bold ml-1">{notAnsweredCount}</span>
+            </div>
+          </div>
 
-            {/* Question Palette */}
-            <div className={`rounded-lg p-4 mb-4 ${
-              isDark ? 'bg-[#212226]' : 'bg-white'
-            }`}>
-              <h3 className={`font-semibold mb-3 ${
-                isDark ? 'text-slate-200' : 'text-gray-700'
-              }`}>
-                SECTION: Test
-              </h3>
-              <div className="grid grid-cols-5 gap-2">
-                {test.questions.map((_, idx) => {
-                  const status = getQuestionStatus(idx);
-                  const isCurrent = idx === currentQuestion;
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => handleQuestionClick(idx)}
-                      className={`w-10 h-10 rounded-lg font-semibold text-sm transition-all ${
-                        isCurrent
-                          ? isDark 
-                            ? 'ring-2 ring-blue-400 ring-offset-slate-800' 
-                            : 'ring-2 ring-blue-500 ring-offset-2'
-                          : ''
+          {/* Section Header */}
+          <div className="px-3 py-2 border-b border-[#B2EBF2]">
+            <span className="font-bold text-sm text-gray-800">SECTION : Test</span>
+          </div>
+
+          {/* Question Palette */}
+          <div
+            ref={paletteRef}
+            className="flex-1 overflow-y-auto p-3 realistic-scrollbar"
+          >
+            <div className="grid grid-cols-5 gap-2">
+              {test.questions.map((_, idx) => {
+                const status = getQuestionStatus(idx);
+                const isCurrent = idx === currentQuestion;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handleQuestionClick(idx)}
+                    className={`w-9 h-9 text-xs font-semibold rounded-lg transition-all relative ${isCurrent ? 'ring-2 ring-black ring-offset-1' : ''
                       } ${getStatusColor(status)}`}
-                    >
-                      {idx + 1}
-                    </button>
-                  );
-                })}
-              </div>
+                  >
+                    {idx + 1}
+                    {status === 'marked-answered' && (
+                      <div className="absolute bottom-0 right-0 p-0.5">
+                        <div className="w-2 h-2 bg-green-500 rounded-full border border-white"></div>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
-            {/* Action Buttons */}
-            <div className="space-y-2">
+          {/* Sidebar Action Buttons */}
+          <div className="p-3 border-t border-[#B2EBF2] space-y-2 flex-shrink-0">
+            <div className="flex gap-2">
               <button
                 onClick={() => setShowQuestionPaper(true)}
-                className={`w-full px-4 py-2 rounded-lg transition-colors font-semibold text-sm ${
-                  isDark ? 'bg-[#212226] text-blue-400 hover:bg-slate-700' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                }`}
+                className="flex-1 px-3 py-2.5 bg-[#A9CFF4] text-gray-800 rounded text-sm font-medium hover:bg-[#89BFF4] transition-colors"
               >
                 Question Paper
               </button>
               <button
                 onClick={() => setShowInstructions(true)}
-                className={`w-full px-4 py-2 rounded-lg transition-colors font-semibold text-sm ${
-                  isDark ? 'bg-[#212226] text-blue-400 hover:bg-slate-700' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                }`}
+                className="flex-1 px-3 py-2.5 bg-[#A9CFF4] text-gray-800 rounded text-sm font-medium hover:bg-[#89BFF4] transition-colors"
               >
                 Instructions
               </button>
-              <button
-                onClick={() => {
-                  if (window.confirm('Are you sure you want to submit the test?')) {
-                    const finalAnswers = answers as number[];
-                    const score = finalAnswers.filter(
-                      (answer, idx) => answer === test.questions[idx].correctAnswer
-                    ).length;
-                    const durationSeconds = defaultTimeMinutes * 60 - timeRemaining;
-                    onSubmit(finalAnswers, score, test.questions.length, durationSeconds, Array.from(markedForReview));
-                  }
-                }}
-                className="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-semibold"
-              >
-                Submit Test
-              </button>
             </div>
+            <button
+              onClick={() => setShowSubmitConfirm(true)}
+              className="px-6 py-2.5 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 transition-colors"
+            >
+              Submit Test
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Submit Confirmation Modal */}
+      <ModalAlert
+        isOpen={showSubmitConfirm}
+        onClose={() => setShowSubmitConfirm(false)}
+        title="Submit Test?"
+        message="Are you sure you want to submit the test? You won't be able to change your answers after submission."
+        type="warning"
+        isDark={isDark}
+        onConfirm={() => {
+          setShowSubmitConfirm(false);
+          // Exit fullscreen if active
+          if (document.fullscreenElement) {
+            document.exitFullscreen();
+          }
+          const performance = evaluateTestPerformance(answers, test.questions);
+          const durationSeconds = totalTimeSeconds - timeRemaining;
+          onSubmit(answers, performance.correct, test.questions.length, durationSeconds, performance, Array.from(markedForReview));
+        }}
+        confirmText="Submit"
+        cancelText="Cancel"
+      />
     </div>
   );
 }
-

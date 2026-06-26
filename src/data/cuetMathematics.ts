@@ -1,8 +1,8 @@
-import type { Subject } from '../types';
+import type { Subject, Chapter } from '../types';
 
-export const cuetMathematicsSubject: Subject = {
-  id: 'mathematics',
-  name: 'Mathematics',
+const algebraChapter: Chapter = {
+  id: 'algebra',
+  name: 'Algebra',
   tests: [
     {
       id: 'math-test-1',
@@ -161,4 +161,11 @@ export const cuetMathematicsSubject: Subject = {
       ]
     }
   ]
+};
+
+export const cuetMathematicsSubject: Subject = {
+  id: 'mathematics',
+  name: 'Mathematics',
+  tests: [],
+  chapters: [algebraChapter]
 };

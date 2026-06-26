@@ -2,12 +2,168 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Exam Practice Portal</title>
+    <meta name="google-site-verification" content="8Z7_evvNLDClhzDT7k7nexUWE4ezotBVKFgTp6PKs68" />
+
+    <!-- Primary SEO Meta Tags -->
+    <title>Exam Practice Portal — Free Mock Tests, Study Notes & CUET Preparation</title>
+    <meta name="description" content="Free online exam practice portal with realistic CUET mock tests, timed assessments, study material, bookmarks, and performance analytics. Practice anytime, anywhere." />
+    <meta name="keywords" content="exam practice, mock test, CUET preparation, online test, free study material, MCQ practice, exam portal, test series, study notes" />
+    <meta name="author" content="Exam Practice Portal" />
+    <meta name="robots" content="index, follow" />
+
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
+
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://exam-practice-portal.web.app/" />
+    <meta property="og:title" content="Exam Practice Portal — Free Mock Tests & Study Notes" />
+    <meta property="og:description" content="Practice with realistic mock tests, timed exams, study material, and performance tracking. CUET, entrance exams, and more — completely free." />
+    <meta property="og:image" content="https://exam-practice-portal.web.app/favicon.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:site_name" content="Exam Practice Portal" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Exam Practice Portal — Free Mock Tests & Study Notes" />
+    <meta name="twitter:description" content="Practice with realistic mock tests, timed exams, study material, and performance tracking. Completely free." />
+    <meta name="twitter:image" content="https://exam-practice-portal.web.app/favicon.png" />
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon.png" />
+
+    <!-- PWA / Mobile -->
+    <meta name="theme-color" content="#1e3a8a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ExamPortal" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Structured Data (JSON-LD) for Google Rich Snippets -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Exam Practice Portal",
+      "url": "https://exam-practice-portal.web.app",
+      "description": "Free online exam practice portal with realistic mock tests, study material, bookmarks, and performance analytics.",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "INR"
+      }
+    }
+    </script>
+    <!-- WebSite schema — enables Sitelinks Searchbox & helps Google recognize nav structure -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Exam Practice Portal",
+      "url": "https://exam-practice-portal.web.app",
+      "description": "Free mock tests, study notes and CUET preparation portal.",
+      "inLanguage": "en-IN",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://exam-practice-portal.web.app/?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+    <!-- SiteNavigationElement — tells Google about main site sections -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SiteNavigationElement",
+      "name": [
+        "Home",
+        "Study Library",
+        "CUET Preparation",
+        "SSC CHSL",
+        "UKSSC",
+        "General Knowledge",
+        "Current Affairs",
+        "Reasoning",
+        "About Us"
+      ],
+      "url": [
+        "https://exam-practice-portal.web.app/",
+        "https://exam-practice-portal.web.app/study",
+        "https://exam-practice-portal.web.app/exam/cuet",
+        "https://exam-practice-portal.web.app/exam/ssc-chsl",
+        "https://exam-practice-portal.web.app/exam/ukssc",
+        "https://exam-practice-portal.web.app/exam/gk",
+        "https://exam-practice-portal.web.app/exam/current-affairs",
+        "https://exam-practice-portal.web.app/exam/reasoning",
+        "https://exam-practice-portal.web.app/about"
+      ]
+    }
+    </script>
+
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Google Fonts: Playfair Display (site name) + Cormorant Garamond (headings) -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Cormorant+Garamond:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
-    <div id="root"></div>
+    <noscript>
+      <div style="text-align:center;padding:40px;font-family:sans-serif;">
+        <h1>Exam Practice Portal</h1>
+        <p>Please enable JavaScript to use this application.</p>
+      </div>
+    </noscript>
+    <div id="root">
+      <!-- Pre-render shell: visible to crawlers, replaced by React on load -->
+      <style>
+        #seo-shell{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;padding:0;margin:0;}
+        #seo-shell header{background:#1e3a8a;padding:16px 24px;display:flex;align-items:center;gap:12px;}
+        #seo-shell header h1{font-size:1.25rem;margin:0;color:#fff;font-weight:700;}
+        #seo-shell .loading-dot{width:8px;height:8px;border-radius:50%;background:#60a5fa;display:inline-block;margin:0 3px;animation:blink 1.2s infinite;}
+        #seo-shell .loading-dot:nth-child(2){animation-delay:.2s;}
+        #seo-shell .loading-dot:nth-child(3){animation-delay:.4s;}
+        @keyframes blink{0%,80%,100%{opacity:.2;}40%{opacity:1;}}
+        #seo-shell main{padding:24px;max-width:900px;margin:0 auto;}
+        #seo-shell .tagline{color:#94a3b8;margin-bottom:24px;font-size:1rem;}
+        #seo-shell nav{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:32px;}
+        #seo-shell nav a{background:#1e3a8a;color:#93c5fd;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:.9rem;border:1px solid #2d4fa3;}
+        #seo-shell .spinner{text-align:center;padding:40px;color:#64748b;}
+      </style>
+      <div id="seo-shell">
+        <header>
+          <h1>Exam Practice Portal</h1>
+          <span class="loading-dot"></span><span class="loading-dot"></span><span class="loading-dot"></span>
+        </header>
+        <main>
+          <p class="tagline">Free Mock Tests, Study Notes &amp; Exam Preparation — CUET, SSC CHSL, UKSSC, GK &amp; More</p>
+          <nav>
+            <a href="/exam/cuet">CUET Preparation</a>
+            <a href="/exam/ssc-chsl">SSC CHSL</a>
+            <a href="/exam/ukssc">UKSSC</a>
+            <a href="/exam/gk">General Knowledge</a>
+            <a href="/exam/current-affairs">Current Affairs</a>
+            <a href="/exam/reasoning">Reasoning</a>
+            <a href="/study">Study Library</a>
+          </nav>
+          <div class="spinner">Loading application...</div>
+          <!-- Hidden SEO text for crawlers -->
+          <p style="font-size:0.01px;color:transparent;position:absolute;pointer-events:none;">
+            Practice for CUET, SSC CHSL, UKSSC, GK, Reasoning and Current Affairs with free online mock tests,
+            timed assessments, PYQs, and detailed performance analytics. Study smart with chapter-wise tests and bookmarks.
+          </p>
+        </main>
+      </div>
+      <!-- Hide shell instantly for JS users; crawlers (no JS) still read it -->
+      <script>document.getElementById('seo-shell').style.display='none';</script>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

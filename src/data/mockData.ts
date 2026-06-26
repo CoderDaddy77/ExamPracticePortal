@@ -10,7 +10,7 @@ import { currentAffairsCategory } from './currentAffairsCategory';
 import { reasoningCategory } from './reasoningCategory';
 
 // Increase this version whenever the bundled mock data structure/content changes.
-export const DATA_VERSION = '2024-11-18';
+export const DATA_VERSION = '2026-04-09';
 
 export const examCategories: ExamCategory[] = [
   {
@@ -48,7 +48,7 @@ export const examCategories: ExamCategory[] = [
                 id: 'q4',
                 question: 'Which river is known as the Ganga of the South?',
                 options: ['Krishna', 'Godavari', 'Kaveri', 'Narmada'],
-                correctAnswer: 1
+                correctAnswer: 2
               },
               {
                 id: 'q5',
@@ -138,7 +138,7 @@ export const examCategories: ExamCategory[] = [
                 id: 'q19',
                 question: 'Which country has the largest population?',
                 options: ['India', 'China', 'United States', 'Indonesia'],
-                correctAnswer: 1
+                correctAnswer: 0
               },
               {
                 id: 'q20',
@@ -176,7 +176,30 @@ export const examCategories: ExamCategory[] = [
                 options: ['Sydney', 'Melbourne', 'Canberra', 'Brisbane'],
                 correctAnswer: 2
               }
-            ]
+            ],
+            studyMaterial: {
+              lastUpdated: new Date('2024-09-20').getTime(),
+              sections: [
+                {
+                  id: 'ga-study-1',
+                  title: 'Foundational General Awareness',
+                  content:
+                    '• Father of Indian Constitution: Dr. B.R. Ambedkar.\n• India became independent on 15 August 1947 (midnight of 14th-15th).\n• Capital of India: New Delhi; national animal: Bengal Tiger.'
+                },
+                {
+                  id: 'ga-study-2',
+                  title: 'Quick World Facts',
+                  content:
+                    '• Largest ocean: Pacific Ocean.\n• Red Planet: Mars because of iron oxide-rich soil.\n• Smallest country: Vatican City (approx. 44 hectares).'
+                },
+                {
+                  id: 'ga-study-3',
+                  title: 'Art & Culture Nuggets',
+                  content:
+                    '• National Anthem “Jana Gana Mana” written by Rabindranath Tagore.\n• Mona Lisa painted by Leonardo da Vinci.\n• Romeo and Juliet authored by William Shakespeare.'
+                }
+              ]
+            }
           }
         ]
       },
@@ -338,7 +361,30 @@ export const examCategories: ExamCategory[] = [
                 options: ['50', '55', '60', '65'],
                 correctAnswer: 2
               }
-            ]
+            ],
+            studyMaterial: {
+              lastUpdated: new Date('2024-09-25').getTime(),
+              sections: [
+                {
+                  id: 'quant-study-1',
+                  title: 'Percentage to Value',
+                  content:
+                    'To find p% of N, convert p to fraction: (p / 100) × N.\nExample: 15% of 200 → 0.15 × 200 = 30.'
+                },
+                {
+                  id: 'quant-study-2',
+                  title: 'Simple Interest refresher',
+                  content:
+                    'SI = (Principal × Rate × Time) / 100. For Rs. 5000 at 5% for 2 years → (5000×5×2)/100 = 500.'
+                },
+                {
+                  id: 'quant-study-3',
+                  title: 'Ratios & Proportions',
+                  content:
+                    'Given a : b = 3 : 4 and b = 12 ⇒ multiply ratio by 3 to get actual values ⇒ a = 9.\nAlways scale both parts by the same factor.'
+                }
+              ]
+            }
           }
         ]
       },

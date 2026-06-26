@@ -1,3 +1,94 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Hide scrollbar but keep scroll functional (width:0 is overridable, display:none is not) */
+::-webkit-scrollbar { width: 0; height: 0; }
+* { scrollbar-width: none; -ms-overflow-style: none; }
+
+/* Per-page scrollbar override — applied via JS class on <html> */
+html.page-scrollbar { scrollbar-width: thin; scrollbar-color: #94a3b8 transparent; -ms-overflow-style: auto; }
+html.page-scrollbar::-webkit-scrollbar { width: 6px; }
+html.page-scrollbar::-webkit-scrollbar-track { background: transparent; }
+html.page-scrollbar::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 99px; }
+html.page-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748b; }
+/* Push scrollbar down below sticky header (~52px) — light mode */
+html.page-scrollbar::-webkit-scrollbar-button:start:decrement {
+  display: block; height: 52px; background: #ffffff;
+}
+
+/* Dark mode variant */
+html.page-scrollbar-dark { scrollbar-width: thin; scrollbar-color: #4b5563 transparent; -ms-overflow-style: auto; }
+html.page-scrollbar-dark::-webkit-scrollbar { width: 6px; }
+html.page-scrollbar-dark::-webkit-scrollbar-track { background: #1F1F1E; }
+html.page-scrollbar-dark::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 99px; }
+html.page-scrollbar-dark::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+/* Push scrollbar down below sticky header (~52px) — dark mode */
+html.page-scrollbar-dark::-webkit-scrollbar-button:start:decrement {
+  display: block; height: 52px; background: #1F1F1E;
+}
+
+/* Visible scrollbar — default (light) */
+.realistic-scrollbar { scrollbar-width: thin !important; scrollbar-color: #9ca3af transparent !important; }
+.realistic-scrollbar::-webkit-scrollbar { width: 6px !important; height: 6px !important; }
+.realistic-scrollbar::-webkit-scrollbar-track { background: transparent !important; }
+.realistic-scrollbar::-webkit-scrollbar-thumb { background: #9ca3af !important; border-radius: 99px !important; }
+.realistic-scrollbar::-webkit-scrollbar-thumb:hover { background: #6b7280 !important; border-radius: 99px !important; }
+
+/* Visible scrollbar — dark themed */
+.dark-scrollbar { scrollbar-width: thin !important; scrollbar-color: #4b4b4b #252525 !important; }
+.dark-scrollbar::-webkit-scrollbar { width: 6px !important; height: 6px !important; }
+.dark-scrollbar::-webkit-scrollbar-track { background: #252525 !important; border-radius: 99px; }
+.dark-scrollbar::-webkit-scrollbar-thumb { background: #4b4b4b !important; border-radius: 99px !important; }
+.dark-scrollbar::-webkit-scrollbar-thumb:hover { background: #636363 !important; border-radius: 99px !important; }
+
+.font-display {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.font-heading {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  letter-spacing: 0em;
+  font-weight: 500;
+}
+
+/* Rich content styles for questions, options, and explanations */
+.rich-content img {
+  max-width: 100%;
+  max-height: 400px;
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  margin: 8px 0;
+  display: inline-block;
+  object-fit: contain;
+}
+
+.rich-content p {
+  margin: 0;
+  display: inline;
+}
+
+.rich-content strong,
+.rich-content b {
+  font-weight: 700;
+}
+
+.rich-content em,
+.rich-content i {
+  font-style: italic;
+}
+
+.rich-content sub {
+  vertical-align: sub;
+  font-size: 0.8em;
+}
+
+.rich-content sup {
+  vertical-align: super;
+  font-size: 0.8em;
+}
+
+.rich-content u {
+  text-decoration: underline;
+}

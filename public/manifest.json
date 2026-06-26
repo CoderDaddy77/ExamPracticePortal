@@ -1,0 +1,23 @@
+{
+  "name": "Exam Practice Portal",
+  "short_name": "ExamPortal",
+  "description": "Free online exam practice portal with realistic mock tests, study material, and performance analytics.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#18191D",
+  "theme_color": "#1e3a8a",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

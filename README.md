@@ -1,73 +1,138 @@
-# React + TypeScript + Vite
+# 📚 Exam Practice Portal
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> A full-stack exam preparation platform with AI-powered study material, mock tests, cheat sheets, and performance analytics — built for serious learners.
 
-Currently, two official plugins are available:
+**🔗 Live Demo → [exam-practice-portal.web.app](https://exam-practice-portal.web.app)**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## ✨ Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 🎯 For Students
+- **Mock Tests** — Timed practice tests with normal and realistic exam modes
+- **Study Mode** — Chapter-wise notes, guided sections, and structured cheat sheets
+- **Quick Quiz** — Random question pools from any category, subject, or chapter
+- **Weak Areas Analyzer** — Visual analytics to identify and focus on weak topics
+- **Bookmarks** — Save questions for later review with a dedicated bookmarked test mode
+- **Performance Results** — Detailed score breakdown with marks, correct/incorrect/unattempted stats
 
-## Expanding the ESLint configuration
+### ⚙️ For Admins
+- **Admin Panel** — Full CRUD for categories, subjects, chapters, and tests
+- **Rich Text Editor** — Quill-based editor for writing formatted study notes with images
+- **Cheat Sheet Builder** — Structured table-based cheat sheets (tenses, vocab tables, formulas)
+- **Smart AI Import** — Paste Gemini/ChatGPT markdown tables and auto-convert to cheat sheets
+- **URL-Persistent State** — Admin selections persist across page reloads via URL params
+- **Content Reordering** — Control whether Notes or Cheat Sheets appear first for each test
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### ☁️ Infrastructure
+- **Firebase Auth** — Google Sign-In for admin access
+- **Firestore** — Real-time cloud sync of all user content, results, and bookmarks
+- **Firebase Hosting** — Production deployment with custom cache headers and SPA rewrites
+- **Data Backup/Restore** — Export and import user data as JSON
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+---
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## 🛠️ Tech Stack
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+| Layer | Technology |
+|---|---|
+| Frontend | React 18 + TypeScript |
+| Build Tool | Vite |
+| Styling | Vanilla CSS + Tailwind utility classes |
+| Rich Text | Quill.js |
+| Icons | Lucide React |
+| Auth | Firebase Authentication (Google) |
+| Database | Cloud Firestore |
+| Hosting | Firebase Hosting |
+| Routing | React Router v6 |
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+
+- Firebase CLI (`npm install -g firebase-tools`)
+- A Firebase project with Auth and Firestore enabled
+
+### Local Development
+
+```bash
+# Clone the repo
+git clone https://github.com/CoderDaddy77/ExamPracticePortal.git
+cd ExamPracticePortal
+
+# Install dependencies
+npm install
+
+# Start dev server
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Environment Setup
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Create a `.env` file in the project root with your Firebase config:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```env
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
 ```
+
+### Build & Deploy
+
+```bash
+# Production build
+npm run build
+
+# Deploy to Firebase Hosting
+firebase login
+firebase deploy --only hosting
+```
+
+---
+
+## 📁 Project Structure
+
+```
+src/
+├── components/
+│   ├── AdminPanel.tsx         # Full admin CRUD interface
+│   ├── StudyMaterialPage.tsx  # Student study view (notes + cheat sheets)
+│   ├── CheatSheetEditor.tsx   # Drag-and-drop cheat sheet builder
+│   ├── CheatSheetDisplay.tsx  # Styled cheat sheet viewer
+│   ├── TestPage.tsx           # Normal test mode
+│   ├── RealisticTestPage.tsx  # Exam-mode test with strict controls
+│   ├── ResultsPage.tsx        # Detailed score breakdown
+│   ├── HomePage.tsx           # Landing + featured content
+│   ├── ChapterPage.tsx        # Chapter-level navigation
+│   ├── SubjectPage.tsx        # Subject-level navigation
+│   └── ...
+├── firebase/                  # Firestore read/write helpers
+├── utils/                     # Parsing, scoring, default data utilities
+├── types.ts                   # Full TypeScript interface definitions
+└── App.tsx                    # Root router + global state
+```
+
+---
+
+## 🎨 Design Highlights
+
+- **Dark / Light mode** with smooth transitions
+- **Glassmorphism cards** and gradient backgrounds
+- **Micro-animations** on hover and interaction
+- **Fully responsive** — works on mobile, tablet, and desktop
+- **Skeleton loading** screens during Firebase auth resolution
+
+---
+
+## 📄 License
+
+MIT — free to use, fork, and learn from.
+
+---
+
+<p align="center">Built with ❤️ by <a href="https://github.com/CoderDaddy77">CoderDaddy77</a></p>

@@ -30,7 +30,7 @@ export const cuetGatSubject: Subject = {
           id: 'cuet-q4',
           question: 'Which river is known as the "Ganga of the South"?',
           options: ['Krishna', 'Godavari', 'Kaveri', 'Narmada'],
-          correctAnswer: 1
+          correctAnswer: 2
         },
         {
           id: 'cuet-q5',

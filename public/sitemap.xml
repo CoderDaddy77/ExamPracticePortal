@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="/sitemap.xsl"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Homepage -->
+  <url>
+    <loc>https://exam-practice-portal.web.app/</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- About -->
+  <url>
+    <loc>https://exam-practice-portal.web.app/about</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- Study Library -->
+  <url>
+    <loc>https://exam-practice-portal.web.app/study</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- ========== SSC CHSL ========== -->
+  <url>
+    <loc>https://exam-practice-portal.web.app/exam/ssc-chsl</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://exam-practice-portal.web.app/exam/ssc-chsl/general-awareness</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://exam-practice-portal.web.app/exam/ssc-chsl/quantitative-aptitude</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://exam-practice-portal.web.app/exam/ssc-chsl/english</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://exam-practice-portal.web.app/exam/ssc-chsl/reasoning</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- ========== CUET ========== -->
+  <url>
+    <loc>https://exam-practice-portal.web.app/exam/cuet</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <!-- CUET Physics -->
+  <url>
+    <loc>https://exam-practice-portal.web.app/exam/cuet/physics</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- CUET Chemistry -->
+  <url>
+    <loc>https://exam-practice-portal.web.app/exam/cuet/chemistry</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- CUET Mathematics -->
+  <url>
+    <loc>https://exam-practice-portal.web.app/exam/cuet/mathematics</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- CUET English -->
+  <url>
+    <loc>https://exam-practice-portal.web.app/exam/cuet/english</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- CUET GAT -->
+  <url>
+    <loc>https://exam-practice-portal.web.app/exam/cuet/gat</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- ========== UKSSC ========== -->
+  <url>
+    <loc>https://exam-practice-portal.web.app/exam/ukssc</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- ========== General Knowledge ========== -->
+  <url>
+    <loc>https://exam-practice-portal.web.app/exam/gk</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- ========== Current Affairs ========== -->
+  <url>
+    <loc>https://exam-practice-portal.web.app/exam/current-affairs</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- ========== Reasoning ========== -->
+  <url>
+    <loc>https://exam-practice-portal.web.app/exam/reasoning</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+</urlset>
