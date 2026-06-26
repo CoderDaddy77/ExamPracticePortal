@@ -21,13 +21,14 @@ import { deleteImagesByUrls } from './supabaseStorage';
 
 // Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyDZBsli5uxjoZgrapZoOHG7NKgXZfbJ6BM",
-    authDomain: "exam-prep-app-80cd8.firebaseapp.com",
-    projectId: "exam-prep-app-80cd8",
-    storageBucket: "exam-prep-app-80cd8.firebasestorage.app",
-    messagingSenderId: "654316852573",
-    appId: "1:654316852573:web:5162a75551e34a7cfb84b4"
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
+
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
