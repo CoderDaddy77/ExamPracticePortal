@@ -1,0 +1,44 @@
+name: 🏓 Supabase Keep-Alive Ping
+
+on:
+  # Har 3 din mein ek baar - Sunday, Wednesday, Friday ko
+  schedule:
+    - cron: '0 6 */3 * *'   # Har 3 din par, subah 6 baje UTC (11:30 IST)
+  
+  # Manual trigger bhi kar sakte ho kabhi bhi
+  workflow_dispatch:
+
+jobs:
+  ping-supabase:
+    name: Ping Supabase to Keep Alive
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🏓 Ping Supabase REST API
+        run: |
+          echo "🔔 Pinging Supabase project to prevent inactivity pause..."
+          echo "⏰ Time: $(date)"
+          
+          # Supabase health endpoint ping karo
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            --max-time 30)
+          
+          echo "📡 HTTP Response Code: $RESPONSE"
+          
+          if [ "$RESPONSE" -ge 200 ] && [ "$RESPONSE" -lt 500 ]; then
+            echo "✅ Supabase is alive and responding! Project will NOT pause."
+          else
+            echo "⚠️ Unexpected response: $RESPONSE — check your Supabase project."
+            exit 1
+          fi
+
+      - name: 📊 Log Ping Summary
+        run: |
+          echo "-----------------------------------"
+          echo "✅ Keep-alive ping completed!"
+          echo "🗓️  Next ping in ~3 days"
+          echo "🔗 Project: mcavmkqvshgpzsfzhvud"
+          echo "-----------------------------------"
