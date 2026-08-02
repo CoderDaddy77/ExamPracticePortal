@@ -1,7 +1,7 @@
 name: 🏓 Supabase Keep-Alive Ping
 
 on:
-  # Har 3 din mein ek baar - Sunday, Wednesday, Friday ko
+  # Har 3 din mein ek baar
   schedule:
     - cron: '0 6 */3 * *'   # Har 3 din par, subah 6 baje UTC (11:30 IST)
   
@@ -19,9 +19,12 @@ jobs:
           echo "🔔 Pinging Supabase project to prevent inactivity pause..."
           echo "⏰ Time: $(date)"
           
+          # URL hardcoded hai (public URL hai, sensitive nahi)
+          SUPABASE_URL="https://mcavmkqvshgpzsfzhvud.supabase.co"
+          
           # Supabase health endpoint ping karo
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-            "${{ secrets.SUPABASE_URL }}/rest/v1/" \
+            "${SUPABASE_URL}/rest/v1/" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
             --max-time 30)
@@ -31,7 +34,7 @@ jobs:
           if [ "$RESPONSE" -ge 200 ] && [ "$RESPONSE" -lt 500 ]; then
             echo "✅ Supabase is alive and responding! Project will NOT pause."
           else
-            echo "⚠️ Unexpected response: $RESPONSE — check your Supabase project."
+            echo "⚠️ Unexpected response: $RESPONSE"
             exit 1
           fi
 
